@@ -1,0 +1,195 @@
+---
+title: "Day 20: Hierarchical Clustering — In-Class Activity"
+subtitle: "What's inside the elite cluster?"
+author: "Econ 122"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r packages, include=FALSE, eval=TRUE}
+mypacks <- c("dplyr","ISLR2")
+packs <- installed.packages()
+install.me <- mypacks[!(mypacks %in% packs[,"Package"])]
+if (length(install.me) >= 1) install.packages(install.me, repos = "http://cran.us.r-project.org")
+lapply(mypacks, library, character.only=TRUE)
+```
+
+## Introduction
+
+On Day 19, k-means with K = 3 put 88 colleges, including all four Claremont
+Colleges, in one **elite** cluster. One cluster hides a lot: Harvard and
+Harvey Mudd are both in it. A tree of all 88 is hard to read, so today we
+take **30** of them: the four Claremont Colleges, 14 other liberal arts
+colleges, and 12 research universities. We build a **tree** for those 30 and
+look at the structure inside.
+
+The chunk below uses Day 19's eight columns, standardized over all 777
+colleges, and keeps the 30. `Z_elite` has one row per college, and its **row
+names** are the college names, so they show up in the dendrogram.
+
+**Estimated time: 25 minutes.** The goal for today is **Parts 1–3**. If you
+finish them, keep going with the **Bonus** section at the end. If you don't
+reach the Bonus, that's completely fine.
+
+Each task ends with a question in *italics*. Write a sentence or two for each.
+
+```{r load}
+data(College)
+colleges <- College %>%
+  mutate(college = rownames(College),          # the names are row names; make them a column
+         accept_rate = Accept / Apps) %>%      # share of applicants admitted
+  select(college, Private, accept_rate, Top10perc, F.Undergrad, Outstate,
+         S.F.Ratio, perc.alumni, Expend, Grad.Rate)
+
+claremont <- c("Claremont McKenna College", "Harvey Mudd College",
+               "Pitzer College", "Scripps College")
+liberal_arts <- c("Amherst College", "Williams College", "Wellesley College",
+                  "Bowdoin College", "Carleton College", "Davidson College",
+                  "Reed College", "Occidental College", "Grinnell College",
+                  "Macalester College", "Vassar College", "Barnard College",
+                  "Bryn Mawr College", "Smith College")
+universities <- c("Harvard University", "Yale University", "Princeton University",
+                  "Massachusetts Institute of Technology", "Duke University",
+                  "Columbia University", "Brown University", "Dartmouth College",
+                  "University of Pennsylvania", "Northwestern University",
+                  "University of California at Berkeley",
+                  "University of Michigan at Ann Arbor")
+picked <- c(claremont, liberal_arts, universities)
+
+# Day 19: standardize the eight columns over all 777 colleges
+Z <- scale(colleges %>% select(-college, -Private))
+rownames(Z) <- colleges$college                # keep the names on the rows
+
+# Keep the 30 picked colleges (all in Day 19's elite cluster)
+elite <- colleges %>% filter(college %in% picked)
+Z_elite <- Z[elite$college, ]
+nrow(Z_elite)
+```
+
+---
+
+## Part 1: The Dendrogram (8 minutes)
+
+Fill in the blank to build the tree with complete linkage (see "Hierarchical
+clustering in R" on the slides), and remove the `#`s. The plot is drawn
+**sideways** so the names fit: the leaves are on the right, and the
+**height** of each fusion is on the horizontal axis.
+
+```{r task1, fig.height=7, fig.width=8}
+# hc <- hclust(dist(___))
+#
+# par(mar = c(4, 1, 1, 16))                     # room on the right for the names
+# plot(as.dendrogram(hc), horiz = TRUE, xlab = "Height (distance when fused)")
+```
+
+*Find Claremont McKenna. Which college does it fuse with first, and at about
+what height? Which colleges are in the first group that Harvey Mudd joins?
+At about what height do CMC's and Pitzer's branches first meet? And CMC's
+and Harvard's? So which is more similar to CMC: Pitzer or Harvard?*
+
+---
+
+## Part 2: Cutting the Tree (8 minutes)
+
+Cut the tree into 2, 3, and 4 clusters and see where the colleges go at
+each cut. Then describe the four clusters. Fill in the three blanks and
+remove the `#`s.
+
+```{r task2}
+# elite <- elite %>%
+#   mutate(k2 = cutree(hc, k = 2),
+#          k3 = cutree(hc, k = ___),
+#          k4 = cutree(hc, k = ___))
+#
+# elite %>% count(k2, k3)                       # how the 2 clusters become 3
+# elite %>% count(k3, k4)                       # how the 3 clusters become 4
+#
+# elite %>%
+#   group_by(___) %>%                           # one row per cluster
+#   summarise(colleges = n(), across(accept_rate:Grad.Rate, mean),
+#             share_private = mean(Private == "Yes"))
+#
+# elite %>% arrange(k4) %>% select(college, k4)  # who is in each cluster
+```
+
+*Going from 2 to 3 to 4 clusters, does any cluster ever lose colleges to two
+different new clusters, or does one cluster split each time? Give the four
+clusters names. Where do the four Claremont Colleges end up? One cluster has
+only two colleges: which ones, and what in the averages sets them apart?*
+
+---
+
+## Part 3: Linkage (6 minutes)
+
+Build the tree three ways and compare the cluster sizes when each is cut
+into 4 clusters.
+
+*Predict first, before you run anything: which linkage will give the most
+lopsided clusters (one big cluster and a few tiny ones)? Why? (See "Why
+single linkage chains".)*
+
+Now fill in the blanks so each column uses the linkage it's named after, and
+remove the `#`s.
+
+```{r task3}
+# elite <- elite %>%
+#   mutate(complete = cutree(hclust(dist(Z_elite), method = "complete"), k = 4),
+#          average  = cutree(hclust(dist(Z_elite), method = ___), k = 4),
+#          single   = cutree(hclust(dist(Z_elite), method = ___), k = 4))
+#
+# elite %>% count(complete) %>% arrange(desc(n))  # cluster sizes, biggest first
+# elite %>% count(___) %>% arrange(desc(n))
+# elite %>% count(___) %>% arrange(desc(n))
+#
+# elite %>%
+#   group_by(single) %>%
+#   filter(n() == 1) %>%                          # the clusters of one
+#   select(college, single)
+```
+
+*Was your prediction right? Which linkage gives the most balanced clusters?
+Which colleges does single linkage leave on their own, and why those? Which
+linkage would you use to pick peer groups?*
+
+---
+
+## Bonus (optional)
+
+Work on these if you finish the main questions.
+
+### Bonus 1: Where to cut?
+
+`hc$height` holds the height of every fusion, from the first to the last.
+
+```{r bonus1}
+# tail(hc$height, 8)                     # the last 8 fusions
+# elite %>% count(h7 = cutree(hc, h = 7))  # cut at height 7
+```
+
+*How many clusters does a cut at height 7 give, and why that many? Where is
+the biggest gap between two fusion heights, and how many clusters would a
+cut inside that gap give?*
+
+### Bonus 2: Standardize within the 30
+
+The columns in `Z_elite` were standardized over all 777 colleges. Instead,
+standardize the eight columns over just the 30 colleges (start from
+`elite`), build the tree again, and cut it into 4 clusters.
+
+```{r bonus2}
+# Your code here
+
+```
+
+*Where do the Claremont Colleges end up now? Why can standardizing over a
+different set of colleges change the tree?*
+
+### Bonus 3: All 777 colleges
+
+Try `plot(hclust(dist(Z)), labels = FALSE)` for all 777 colleges.
+
+*What can you still learn from the picture without names? When would you
+pick k-means over hierarchical clustering?*
